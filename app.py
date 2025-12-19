@@ -7,136 +7,112 @@ import io
 from PIL import Image
 from datetime import datetime
 
-# 1. Configuración de idiomas
-LANGS = {
-    "Español": {"t": "Modelo 145 - Empresa", "p1": "Datos Personales", "p2": "Hijos", "p3": "Ascendientes", "p4": "Otros", "f": "Firma", "d": "Descargar PDF"},
-    "English": {"t": "Form 145 - Company", "p1": "Personal Data", "p2": "Children", "p3": "Elders", "p4": "Other", "f": "Signature", "d": "Download PDF"},
-    "Polski": {"t": "Model 145", "p1": "Dane osobowe", "p2": "Dzieci", "p3": "Wstępni", "p4": "Inne", "f": "Podpis", "d": "Pobierz PDF"},
-    "Українська": {"t": "Модель 145", "p1": "Особисті дані", "p2": "Діти", "p3": "Батьки", "p4": "Інше", "f": "Підпис", "d": "Завантажити"}
-}
-
-st.set_page_config(page_title="App Modelo 145", layout="centered")
-
-# CSS para forzar colores claros y visibilidad de pestañas/botones
+# 1. Configuración de Estilo y Visibilidad
+st.set_page_config(page_title="Modelo 145 Profesional", layout="centered")
 st.markdown("""
     <style>
-    .stApp { background-color: #ffffff; }
-    h1, h2, h3, p, label, span { color: #000000 !important; }
-    .stTabs [data-baseweb="tab-list"] { background-color: #eeeeee; border-radius: 5px; }
-    .stTabs [data-baseweb="tab"] { color: #000000 !important; }
-    .stButton>button { background-color: #1e3a8a !important; color: white !important; }
-    .stDownloadButton>button { background-color: #059669 !important; color: white !important; font-weight: bold; }
+    .stApp { background-color: white; }
+    label, p, h1, h2, h3, span { color: black !important; }
+    .stTabs [data-baseweb="tab-list"] { background-color: #f0f2f6; border-radius: 5px; }
+    .stTabs [data-baseweb="tab"] { color: black !important; font-weight: bold; }
+    .stButton>button { background-color: #1e3a8a !important; color: white !important; width: 100%; height: 3em; }
+    .stDownloadButton>button { background-color: #059669 !important; color: white !important; width: 100%; height: 3.5em; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-idioma = st.sidebar.selectbox("🌐 Idioma", list(LANGS.keys()))
-t = LANGS[idioma]
-
 try:
-    st.image("logo.png", width=200)
+    st.image("logo.png", width=220)
 except:
-    st.title("🏢 Gestión Modelo 145")
+    st.write("🏢 **Gestión Modelo 145**")
 
-# 3. Formulario
-with st.form("main_form"):
-    tab1, tab2, tab3, tab4 = st.tabs([t["p1"], t["p2"], t["p3"], t["p4"]])
+# 2. Formulario Multi-pestaña
+with st.form("form_hibrido"):
+    tab1, tab2, tab3 = st.tabs(["📋 Datos Personales", "👪 Familia", "🖋️ Otros y Firma"])
     
     with tab1:
         c1, c2 = st.columns(2)
         nif = c1.text_input("NIF / NIE")
         nombre = c2.text_input("Apellidos y Nombre")
-        año = st.text_input("Año Nacimiento (YYYY)")
-        sit = st.radio("Situación Familiar:", ["1", "2", "3"], help="1: Soltero con hijos, 2: Casado cónyuge <1500€, 3: Otros")
-        nif_c = st.text_input("NIF Cónyuge (si es sit. 2)")
-        disc = st.selectbox("Discapacidad:", ["No", "33-65", "65", "Movilidad"])
-
+        año_nac = st.text_input("Año de nacimiento (YYYY)")
+        sit = st.radio("Situación Familiar", ["1", "2", "3"])
+        nif_c = st.text_input("NIF Cónyuge (Solo situación 2)")
+        
     with tab2:
-        hijos = st.number_input("Nº hijos", 0, 10)
-        hijos_disc = st.number_input("Hijos con discapacidad", 0, 10)
-        entero = st.checkbox("Cómputo por entero")
-
+        hijos = st.number_input("Nº Hijos", 0, 10)
+        asc = st.number_input("Nº Ascendientes", 0, 10)
+        
     with tab3:
-        asc = st.number_input("Nº ascendientes", 0, 5)
-        asc_disc = st.number_input("Ascendientes con discapacidad", 0, 5)
+        vivienda = st.checkbox("Deducción Vivienda (Hipotecas < 2013)")
+        st.write("### Firma en el recuadro gris")
+        canvas_result = st_canvas(stroke_width=2, stroke_color="black", background_color="#f0f0f0", height=130, key="sig")
 
-    with tab4:
-        pension = st.number_input("Pensión compensatoria (€/año)", 0.0)
-        alimentos = st.number_input("Anualidad alimentos (€/año)", 0.0)
-        vivienda = st.checkbox("Hipotecas < 2013")
+    submit = st.form_submit_button("GENERAR PDF CON FECHA DE HOY")
 
-    st.write(f"### {t['f']}")
-    canvas_result = st_canvas(stroke_width=2, stroke_color="black", background_color="#f0f0f0", height=120, key="canvas")
-    submit = st.form_submit_button("PREPARAR DOCUMENTO")
-
-# 4. Generación con coordenadas RE-CALIBRADAS
+# 3. Lógica de Procesamiento
 if submit:
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=A4)
-    can.setFont("Helvetica", 9)
+    if not nif or not nombre:
+        st.error("DNI y Nombre son campos obligatorios")
+    else:
+        # A. Preparar Escritor con soporte para Formularios (AcroForms)
+        reader = PdfReader("modelo145.pdf")
+        writer = PdfWriter()
+        
+        # Copiar metadatos de formulario para que el mapeo funcione
+        if "/AcroForm" not in writer.root_object:
+            writer.root_object.update({"/AcroForm": reader.trailer["/Root"].get("/AcroForm", {})})
 
-    # AJUSTE QUIRÚRGICO (Basado en el PDF desplazado enviado por el usuario)
-    # He bajado la Y (segundo número) unos 30-40 puntos y movido la X a la derecha.
-    
-    # BLOQUE 1: Datos personales
-    can.drawString(55, 650, nif.upper())          # NIF
-    can.drawString(170, 650, nombre.upper())      # Nombre
-    can.drawString(415, 650, año)                 # Año Nac
-    
-    if sit == "1": can.drawString(64, 616, "X")
-    if sit == "2": 
-        can.drawString(64, 600, "X")
-        can.drawString(205, 600, nif_c.upper())
-    if sit == "3": can.drawString(64, 584, "X")
-    
-    if "33" in disc: can.drawString(428, 584, "X")
-    if "65" in disc: can.drawString(502, 584, "X")
-    if "Mov" in disc: can.drawString(428, 556, "X")
+        writer.add_page(reader.pages[0])
 
-    # BLOQUE 2: Hijos
-    if hijos > 0:
-        can.drawString(310, 488, str(hijos))
-        if entero: can.drawString(365, 488, "X")
-        if hijos_disc > 0: can.drawString(435, 488, str(hijos_disc))
+        # B. Rellenar campos de texto (Mapeo Automático)
+        fields = {
+            "F_1": nif.upper(),
+            "F_2": nombre.upper(),
+            "F_3": año_nac,
+            "F_4": "X" if sit == "1" else "",
+            "F_5": "X" if sit == "2" else "",
+            "F_6": nif_c.upper(),
+            "F_7": "X" if sit == "3" else "",
+            "F_25": str(hijos) if hijos > 0 else "",
+            "F_32": str(asc) if asc > 0 else "",
+            "F_43": "X" if vivienda else ""
+        }
+        writer.update_page_form_field_values(writer.pages[0], fields)
 
-    # BLOQUE 3: Ascendientes
-    if asc > 0:
-        can.drawString(310, 400, str(asc))
-        if asc_disc > 0: can.drawString(435, 400, str(asc_disc))
+        # C. Capa para Firma y Fecha Automática
+        packet = io.BytesIO()
+        can = canvas.Canvas(packet, pagesize=A4)
+        can.setFont("Helvetica", 10)
+        
+        # Lógica de Fecha (Apartado 6)
+        hoy = datetime.now()
+        can.drawString(223, 195, str(hoy.day).zfill(2))   # Casilla Día
+        can.drawString(254, 195, str(hoy.month).zfill(2)) # Casilla Mes
+        can.drawString(290, 195, str(hoy.year))           # Casilla Año
 
-    # BLOQUE 4 y 5
-    if pension > 0: can.drawString(400, 326, f"{pension:.2f}")
-    if alimentos > 0: can.drawString(400, 313, f"{alimentos:.2f}")
-    if vivienda: can.drawString(64, 283, "X")
+        # Firma Táctil
+        if canvas_result.image_data is not None:
+            img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+            # Coordenadas recalibradas para el recuadro "Firma del perceptor"
+            can.drawInlineImage(img, 72, 110, width=120, height=50)
 
-    # FIRMA Y FECHA
-    hoy = datetime.now()
-    can.drawString(215, 173, str(hoy.day))
-    can.drawString(245, 173, str(hoy.month))
-    can.drawString(285, 173, str(hoy.year))
+        can.save()
+        packet.seek(0)
+        
+        # D. Fusión
+        overlay = PdfReader(packet)
+        writer.pages[0].merge_page(overlay.pages[0])
+        
+        # Añadir páginas extra (instrucciones)
+        for i in range(1, len(reader.pages)):
+            writer.add_page(reader.pages[i])
 
-    if canvas_result.image_data is not None:
-        img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
-        # Firma centrada en el recuadro del perceptor
-        can.drawInlineImage(img, 70, 93, width=110, height=45)
-
-    can.save()
-    packet.seek(0)
-    
-    original = PdfReader(open("modelo145.pdf", "rb"))
-    overlay = PdfReader(packet)
-    writer = PdfWriter()
-    page = original.pages[0]
-    page.merge_page(overlay.pages[0])
-    writer.add_page(page)
-    for i in range(1, len(original.pages)): writer.add_page(original.pages[i])
-
-    buf = io.BytesIO()
-    writer.write(buf)
-    
-    st.success("✅ Documento listo")
-    st.download_button(
-        label=f"⬇️ {t['d']}",
-        data=buf.getvalue(),
-        file_name=f"MOD145_{nif.upper()}.pdf",
-        mime="application/pdf"
-    )
+        buf = io.BytesIO()
+        writer.write(buf)
+        
+        st.success(f"✅ Formulario completado hoy {hoy.strftime('%d/%m/%Y')}")
+        st.download_button(
+            label="⬇️ DESCARGAR MODELO 145",
+            data=buf.getvalue(),
+            file_name=f"MOD145_{nif.upper()}.pdf",
+            mime="application/pdf"
+        )
