@@ -7,127 +7,163 @@ import io
 from PIL import Image
 from datetime import datetime
 
-# Traducciones completas
+# 1. Traducciones y Textos de Situación
 LANGS = {
-    "Español": {"t": "Modelo 145", "p1": "1. Datos Personales", "p2": "2. Hijos y Descendientes", "p3": "3. Ascendientes", "p4": "4 y 5. Pensiones y Vivienda", "f": "6. Firma", "d": "Descargar PDF"},
-    "English": {"t": "Form 145", "p1": "1. Personal Data", "p2": "2. Children", "p3": "3. Elders", "p4": "4 & 5. Alimony/Mortgage", "f": "6. Signature", "d": "Download PDF"},
-    "Polski": {"t": "Model 145", "p1": "1. Dane osobowe", "p2": "2. Dzieci", "p3": "3. Wstępni", "p4": "4 i 5. Alimenty/Kredyt", "f": "6. Podpis", "d": "Pobierz PDF"},
-    "Українська": {"t": "Модель 145", "p1": "1. Особисті дані", "p2": "2. Діти", "p3": "3. Батьки", "p4": "4 і 5. Аліменти/Іпотека", "f": "6. Підпис", "d": "Завантажити"}
+    "Español": {"t": "Modelo 145 - Empresa", "p1": "Datos Personales", "p2": "Hijos/Descendientes", "p3": "Ascendientes", "p4": "Otros Datos", "f": "Firma", "d": "Descargar PDF"},
+    "English": {"t": "Form 145 - Company", "p1": "Personal Data", "p2": "Children", "p3": "Elders", "p4": "Other", "f": "Signature", "d": "Download PDF"},
+    "Polski": {"t": "Model 145", "p1": "Dane osobowe", "p2": "Dzieci", "p3": "Wstępni", "p4": "Inne", "f": "Podpis", "d": "Pobierz PDF"},
+    "Українська": {"t": "Модель 145", "p1": "Особисті дані", "p2": "Діти", "p3": "Батьки", "p4": "Інше", "f": "Підпис", "d": "Завантажити"}
 }
 
-st.set_page_config(page_title="App Modelo 145", layout="wide")
+st.set_page_config(page_title="App Modelo 145", layout="centered")
 
-# Forzar visibilidad (Texto negro sobre fondo claro)
-st.markdown("""<style> .stApp { background-color: white; } label, p, h1, h2, h3 { color: black !important; } </style>""", unsafe_allow_html=True)
+# 2. CSS para arreglar colores (Botones azules, Pestañas visibles)
+st.markdown("""
+    <style>
+    .stApp { background-color: #ffffff; }
+    h1, h2, h3, p, label, span { color: #000000 !important; }
+    
+    /* Arreglar Pestañas (Tabs) */
+    .stTabs [data-baseweb="tab-list"] { background-color: #f0f2f6; border-radius: 10px; }
+    .stTabs [data-baseweb="tab"] { color: #000000 !important; font-weight: bold; }
+    
+    /* Arreglar Botón de descarga */
+    .stButton>button {
+        background-color: #1e3a8a !important;
+        color: white !important;
+        border-radius: 5px;
+        width: 100%;
+        border: none;
+        padding: 10px;
+    }
+    .stDownloadButton>button {
+        background-color: #059669 !important;
+        color: white !important;
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-idioma = st.sidebar.selectbox("🌐 Idioma / Language", list(LANGS.keys()))
+idioma = st.sidebar.selectbox("🌐 Idioma", list(LANGS.keys()))
 t = LANGS[idioma]
 
 try:
-    st.image("logo.png", width=200)
+    st.image("logo.png", width=220)
 except:
-    st.title("🏢 Empresa Transportes")
+    st.title("🏢 Gestión Modelo 145")
 
-st.title(t["t"])
-
-with st.form("form_completo"):
+# 3. Formulario
+with st.form("main_form"):
     tab1, tab2, tab3, tab4 = st.tabs([t["p1"], t["p2"], t["p3"], t["p4"]])
     
     with tab1:
         c1, c2 = st.columns(2)
         nif = c1.text_input("NIF / NIE")
         nombre = c2.text_input("Apellidos y Nombre")
-        nacimiento = st.text_input("Año de nacimiento (YYYY)")
-        situacion = st.radio("Situación Familiar", ["1", "2", "3"], help="1: Soltero con hijos, 2: Casado con cónyuge bajos ingresos, 3: Otros")
-        nif_conyuge = st.text_input("NIF Cónyuge (Solo si marcó situación 2)")
-        discap = st.selectbox("Discapacidad", ["No", ">=33% y <65%", ">=65%", "Movilidad reducida"])
+        año = st.text_input("Año Nacimiento (YYYY)")
+        
+        sit = st.radio("Situación Familiar:", [
+            "1. Soltero/Divorciado con hijos (en exclusividad)",
+            "2. Casado/a y cónyuge no gana más de 1.500€/año",
+            "3. Otras situaciones (Solteros sin hijos, casados con ingresos, etc.)"
+        ])
+        
+        nif_c = ""
+        if "2." in sit: nif_c = st.text_input("NIF Cónyuge")
+        
+        disc = st.selectbox("Discapacidad:", ["No", "Grado >= 33%", "Grado >= 65%"])
+        movilidad = st.checkbox("Movilidad Geográfica")
 
     with tab2:
-        st.write("Hijos o descendientes menores de 25 años:")
-        num_hijos = st.number_input("Nº hijos totales", 0, 10)
-        hijos_discap_33 = st.number_input("Nº hijos con discapacidad >33%", 0, 10)
-        hijos_discap_65 = st.number_input("Nº hijos con discapacidad >65%", 0, 10)
-        hijos_entero = st.checkbox("¿Hijos computados por entero? (Solo usted convive con ellos)")
+        hijos = st.number_input("Nº hijos menores de 25 años", 0, 10)
+        hijos_disc = st.number_input("De ellos, con discapacidad", 0, 10)
+        entero = st.checkbox("Cómputo por entero (solo usted convive con ellos)")
 
     with tab3:
-        st.write("Ascendientes mayores de 65 años a cargo:")
-        num_asc = st.number_input("Nº ascendientes totales", 0, 10)
-        asc_discap_33 = st.number_input("Nº ascendientes con discapacidad >33%", 0, 10)
-        asc_discap_65 = st.number_input("Nº ascendientes con discapacidad >65%", 0, 10)
+        asc = st.number_input("Nº ascendientes mayores de 65 años", 0, 5)
+        asc_disc = st.number_input("De ellos, con discapacidad", 0, 5)
 
     with tab4:
-        pension = st.number_input("Pensión compensatoria al cónyuge (€/año)", 0.0)
+        pension = st.number_input("Pensión compensatoria cónyuge (€/año)", 0.0)
         alimentos = st.number_input("Anualidad alimentos hijos (€/año)", 0.0)
-        vivienda = st.checkbox("Pagos por hipoteca vivienda habitual (antes de 2013)")
+        vivienda = st.checkbox("Deducción vivienda habitual (compra antes de 2013)")
 
     st.write(f"### {t['f']}")
-    canvas_result = st_canvas(stroke_width=2, stroke_color="black", background_color="#eee", height=120, key="signature")
+    canvas_result = st_canvas(stroke_width=2, stroke_color="black", background_color="#f0f0f0", height=120, key="canvas")
     
-    enviar = st.form_submit_button(t["d"])
+    submit = st.form_submit_button("PREPARAR DOCUMENTO")
 
-if enviar:
-    # 1. Crear capa de texto (COORDENADAS MAREADAS SEGÚN EL PDF)
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=A4)
-    can.setFont("Helvetica", 9)
+# 4. Generación con coordenadas corregidas (Remapeo)
+if submit:
+    if not nif or not nombre:
+        st.error("DNI y Nombre son obligatorios")
+    else:
+        packet = io.BytesIO()
+        can = canvas.Canvas(packet, pagesize=A4)
+        can.setFont("Helvetica", 10)
 
-    # BLOQUE 1: Datos personales
-    can.drawString(55, 680, nif.upper())
-    can.drawString(155, 680, nombre.upper())
-    can.drawString(412, 680, nacimiento)
-    if situacion == "1": can.drawString(63, 641, "X")
-    if situacion == "2": 
-        can.drawString(63, 625, "X")
-        can.drawString(205, 625, nif_conyuge.upper())
-    if situacion == "3": can.drawString(63, 609, "X")
-    if "33%" in discap: can.drawString(428, 609, "X")
-    if "65%" in discap: can.drawString(502, 609, "X")
+        # BLOQUE 1 (Ajustado: + X para derecha, - Y para bajar)
+        can.drawString(60, 672, nif.upper())
+        can.drawString(170, 672, nombre.upper())
+        can.drawString(415, 672, año)
+        
+        if "1." in sit: can.drawString(64, 638, "X")
+        if "2." in sit: 
+            can.drawString(64, 622, "X")
+            can.drawString(205, 622, nif_c.upper())
+        if "3." in sit: can.drawString(64, 606, "X")
+        
+        if "33%" in disc: can.drawString(428, 606, "X")
+        if "65%" in disc: can.drawString(502, 606, "X")
+        if movilidad: can.drawString(428, 578, "X")
 
-    # BLOQUE 2: Hijos
-    if num_hijos > 0:
-        can.drawString(300, 510, str(num_hijos))
-        if hijos_entero: can.drawString(355, 510, "X")
-        if hijos_discap_33 > 0: can.drawString(428, 510, str(hijos_discap_33))
-        if hijos_discap_65 > 0: can.drawString(502, 510, str(hijos_discap_65))
+        # BLOQUE 2 (Hijos)
+        if hijos > 0:
+            can.drawString(310, 510, str(hijos))
+            if entero: can.drawString(365, 510, "X")
+            if hijos_disc > 0: can.drawString(435, 510, str(hijos_disc))
 
-    # BLOQUE 3: Ascendientes
-    if num_asc > 0:
-        can.drawString(300, 420, str(num_asc))
-        if asc_discap_33 > 0: can.drawString(428, 420, str(asc_discap_33))
-        if asc_discap_65 > 0: can.drawString(502, 420, str(asc_discap_65))
+        # BLOQUE 3 (Ascendientes)
+        if asc > 0:
+            can.drawString(310, 422, str(asc))
+            if asc_disc > 0: can.drawString(435, 422, str(asc_disc))
 
-    # BLOQUE 4 y 5: Pensiones y Vivienda
-    if pension > 0: can.drawString(400, 348, f"{pension:.2f}")
-    if alimentos > 0: can.drawString(400, 335, f"{alimentos:.2f}")
-    if vivienda: can.drawString(63, 305, "X")
+        # BLOQUE 4 y 5
+        if pension > 0: can.drawString(410, 348, f"{pension:.2f}")
+        if alimentos > 0: can.drawString(410, 335, f"{alimentos:.2f}")
+        if vivienda: can.drawString(64, 305, "X")
 
-    # BLOQUE 6: Fecha y Firma
-    fecha_hoy = datetime.now().strftime("%d %m %Y")
-    can.drawString(100, 195, "Madrid") # Ciudad (puedes hacerla campo de texto)
-    can.drawString(215, 195, fecha_hoy.split()[0])
-    can.drawString(245, 195, fecha_hoy.split()[1])
-    can.drawString(285, 195, fecha_hoy.split()[2])
+        # FIRMA Y FECHA
+        fecha = datetime.now()
+        can.drawString(225, 195, str(fecha.day))
+        can.drawString(255, 195, str(fecha.month))
+        can.drawString(295, 195, str(fecha.year))
 
-    if canvas_result.image_data is not None:
-        img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
-        can.drawInlineImage(img, 70, 115, width=110, height=40)
+        if canvas_result.image_data is not None:
+            img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+            can.drawInlineImage(img, 75, 115, width=110, height=45)
 
-    can.save()
-    packet.seek(0)
-    
-    # 2. Fusionar
-    original = PdfReader(open("modelo145.pdf", "rb"))
-    overlay = PdfReader(packet)
-    output = PdfWriter()
-    
-    p = original.pages[0]
-    p.merge_page(overlay.pages[0])
-    output.add_page(p)
-    
-    for i in range(1, len(original.pages)):
-        output.add_page(original.pages[i])
+        can.save()
+        packet.seek(0)
+        
+        original = PdfReader(open("modelo145.pdf", "rb"))
+        overlay = PdfReader(packet)
+        writer = PdfWriter()
+        
+        page = original.pages[0]
+        page.merge_page(overlay.pages[0])
+        writer.add_page(page)
+        
+        for i in range(1, len(original.pages)):
+            writer.add_page(original.pages[i])
 
-    res_buf = io.BytesIO()
-    output.write(res_buf)
-    st.success("PDF Generado")
-    st.download_button(t["d"], res_buf.getvalue(), f"145_{nif}.pdf", "application/pdf")
+        buf = io.BytesIO()
+        writer.write(buf)
+        
+        st.success("✅ Documento listo")
+        st.download_button(
+            label=f"⬇️ {t['d']}",
+            data=buf.getvalue(),
+            file_name=f"MOD145_{nif.upper()}.pdf",
+            mime="application/pdf"
+        )
