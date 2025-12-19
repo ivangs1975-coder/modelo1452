@@ -5,176 +5,129 @@ from reportlab.lib.pagesizes import A4
 from streamlit_drawable_canvas import st_canvas
 import io
 from PIL import Image
+from datetime import datetime
 
-# 1. Configuración de idiomas
+# Traducciones completas
 LANGS = {
-    "Español": {"t": "Modelo 145 - Registro de Conductores", "p1": "Datos Personales", "p2": "Hijos/Descendientes", "p3": "Ascendientes / Otros", "f": "Firma Digital", "d": "Descargar PDF Relleno"},
-    "English": {"t": "Form 145 - Driver Registration", "p1": "Personal Data", "p2": "Children", "p3": "Elders / Other", "f": "Digital Signature", "d": "Download Filled PDF"},
-    "Français": {"t": "Modèle 145 - Registre", "p1": "Données", "p2": "Enfants", "p3": "Ascendants", "f": "Signature", "d": "Télécharger"},
-    "Deutsch": {"t": "Modell 145 - Fahrer", "p1": "Daten", "p2": "Kinder", "p3": "Vorfahren", "f": "Unterschrift", "d": "Herunterladen"},
-    "Русский": {"t": "Модель 145 - Водители", "p1": "Данные", "p2": "Дети", "p3": "Родители", "f": "Подпись", "d": "Скачать"},
-    "Polski": {"t": "Model 145 - Kierowcy", "p1": "Dane", "p2": "Dzieci", "p3": "Wstępni", "f": "Podpis", "d": "Pobierz"},
-    "Українська": {"t": "Модель 145 - Водії", "p1": "Дані", "p2": "Діти", "p3": "Батьки", "f": "Підпис", "d": "Завантажити"}
+    "Español": {"t": "Modelo 145", "p1": "1. Datos Personales", "p2": "2. Hijos y Descendientes", "p3": "3. Ascendientes", "p4": "4 y 5. Pensiones y Vivienda", "f": "6. Firma", "d": "Descargar PDF"},
+    "English": {"t": "Form 145", "p1": "1. Personal Data", "p2": "2. Children", "p3": "3. Elders", "p4": "4 & 5. Alimony/Mortgage", "f": "6. Signature", "d": "Download PDF"},
+    "Polski": {"t": "Model 145", "p1": "1. Dane osobowe", "p2": "2. Dzieci", "p3": "3. Wstępni", "p4": "4 i 5. Alimenty/Kredyt", "f": "6. Podpis", "d": "Pobierz PDF"},
+    "Українська": {"t": "Модель 145", "p1": "1. Особисті дані", "p2": "2. Діти", "p3": "3. Батьки", "p4": "4 і 5. Аліменти/Іпотека", "f": "6. Підпис", "d": "Завантажити"}
 }
 
-# 2. Configuración de página y CSS para evitar "Negro sobre Negro"
-st.set_page_config(page_title="App Modelo 145", layout="centered")
+st.set_page_config(page_title="App Modelo 145", layout="wide")
 
-st.markdown("""
-    <style>
-    /* Forzar fondo claro y texto oscuro en todo el formulario */
-    .stApp {
-        background-color: #ffffff;
-    }
-    label, p, span, h1, h2, h3 {
-        color: #1a1a1a !important;
-    }
-    .stTextInput>div>div>input, .stNumberInput>div>div>input {
-        color: #000000;
-        background-color: #f0f2f6;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #f8f9fa;
-    }
-    .stTabs [data-baseweb="tab"] {
-        color: #4b5563;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# Forzar visibilidad (Texto negro sobre fondo claro)
+st.markdown("""<style> .stApp { background-color: white; } label, p, h1, h2, h3 { color: black !important; } </style>""", unsafe_allow_html=True)
 
-# 3. Logo e Idioma
-idioma = st.sidebar.selectbox("🌐 Seleccione su idioma / Select language", list(LANGS.keys()))
+idioma = st.sidebar.selectbox("🌐 Idioma / Language", list(LANGS.keys()))
 t = LANGS[idioma]
 
 try:
-    st.image("logo.png", width=250)
+    st.image("logo.png", width=200)
 except:
-    st.title("🏢") # Icono si no encuentra el logo.png
+    st.title("🏢 Empresa Transportes")
 
 st.title(t["t"])
-st.write("---")
 
-# 4. Formulario con lógica condicional completa
-with st.form("form_145_completo"):
-    tab1, tab2, tab3 = st.tabs([t["p1"], t["p2"], t["p3"]])
+with st.form("form_completo"):
+    tab1, tab2, tab3, tab4 = st.tabs([t["p1"], t["p2"], t["p3"], t["p4"]])
     
     with tab1:
         c1, c2 = st.columns(2)
-        nif = c1.text_input("NIF / NIE", placeholder="12345678X")
+        nif = c1.text_input("NIF / NIE")
         nombre = c2.text_input("Apellidos y Nombre")
-        
-        c3, c4 = st.columns(2)
-        nacimiento = c3.text_input("Año de nacimiento (YYYY)", placeholder="1985")
-        situacion = st.selectbox("Situación Familiar", 
-                                ["3 - Situación general (Soltero/Casado cónyuge >1500€)", 
-                                 "1 - Soltero/Divorciado con hijos (Exclusividad)", 
-                                 "2 - Casado y cónyuge con ingresos <1500€"])
-        
-        nif_conyuge = ""
-        if "2 -" in situacion:
-            nif_conyuge = st.text_input("NIF del Cónyuge")
-            
-        discapacidad = st.selectbox("Grado de Discapacidad", ["Ninguna", "Entre 33% y 65%", "Más del 65%"])
-        movilidad = st.checkbox("Movilidad Geográfica (Aceptación de nuevo puesto)")
+        nacimiento = st.text_input("Año de nacimiento (YYYY)")
+        situacion = st.radio("Situación Familiar", ["1", "2", "3"], help="1: Soltero con hijos, 2: Casado con cónyuge bajos ingresos, 3: Otros")
+        nif_conyuge = st.text_input("NIF Cónyuge (Solo si marcó situación 2)")
+        discap = st.selectbox("Discapacidad", ["No", ">=33% y <65%", ">=65%", "Movilidad reducida"])
 
     with tab2:
-        st.subheader("Hijos y otros descendientes (<25 años)")
-        num_hijos = st.number_input("Número total de hijos", 0, 10, 0)
-        hijos_discap = st.number_input("De los cuales, ¿cuántos con discapacidad?", 0, 10, 0)
-        entero = st.checkbox("¿Computar hijos por entero? (Solo si NO conviven con el otro progenitor)")
+        st.write("Hijos o descendientes menores de 25 años:")
+        num_hijos = st.number_input("Nº hijos totales", 0, 10)
+        hijos_discap_33 = st.number_input("Nº hijos con discapacidad >33%", 0, 10)
+        hijos_discap_65 = st.number_input("Nº hijos con discapacidad >65%", 0, 10)
+        hijos_entero = st.checkbox("¿Hijos computados por entero? (Solo usted convive con ellos)")
 
     with tab3:
-        st.subheader("Ascendientes (>65 años)")
-        num_asc = st.number_input("Número de ascendientes a cargo", 0, 5, 0)
-        pension = st.number_input("Pensión compensatoria a favor de cónyuge (€/año)", 0.0)
-        hipoteca = st.checkbox("Deducción por vivienda habitual (adquirida antes de 2013)")
+        st.write("Ascendientes mayores de 65 años a cargo:")
+        num_asc = st.number_input("Nº ascendientes totales", 0, 10)
+        asc_discap_33 = st.number_input("Nº ascendientes con discapacidad >33%", 0, 10)
+        asc_discap_65 = st.number_input("Nº ascendientes con discapacidad >65%", 0, 10)
+
+    with tab4:
+        pension = st.number_input("Pensión compensatoria al cónyuge (€/año)", 0.0)
+        alimentos = st.number_input("Anualidad alimentos hijos (€/año)", 0.0)
+        vivienda = st.checkbox("Pagos por hipoteca vivienda habitual (antes de 2013)")
 
     st.write(f"### {t['f']}")
-    st.caption("Firme dentro del cuadro gris usando su dedo o ratón")
-    canvas_result = st_canvas(
-        fill_color="rgba(255, 255, 255, 0)",
-        stroke_width=3,
-        stroke_color="#000000",
-        background_color="#eeeeee",
-        height=150,
-        update_streamlit=True,
-        key="canvas",
-    )
+    canvas_result = st_canvas(stroke_width=2, stroke_color="black", background_color="#eee", height=120, key="signature")
+    
+    enviar = st.form_submit_button(t["d"])
 
-    submit = st.form_submit_button(t["d"])
+if enviar:
+    # 1. Crear capa de texto (COORDENADAS MAREADAS SEGÚN EL PDF)
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=A4)
+    can.setFont("Helvetica", 9)
 
-# 5. Lógica de Generación del PDF
-if submit:
-    if not nif or not nombre:
-        st.error("Por favor, rellene el NIF y el Nombre.")
-    else:
-        try:
-            # Crear capa de texto
-            packet = io.BytesIO()
-            can = canvas.Canvas(packet, pagesize=A4)
-            can.setFont("Helvetica", 10)
+    # BLOQUE 1: Datos personales
+    can.drawString(55, 680, nif.upper())
+    can.drawString(155, 680, nombre.upper())
+    can.drawString(412, 680, nacimiento)
+    if situacion == "1": can.drawString(63, 641, "X")
+    if situacion == "2": 
+        can.drawString(63, 625, "X")
+        can.drawString(205, 625, nif_conyuge.upper())
+    if situacion == "3": can.drawString(63, 609, "X")
+    if "33%" in discap: can.drawString(428, 609, "X")
+    if "65%" in discap: can.drawString(502, 609, "X")
 
-            # --- MAPEO DE COORDENADAS ---
-            # Bloque 1
-            can.drawString(57, 680, nif.upper())
-            can.drawString(155, 680, nombre.upper())
-            can.drawString(410, 680, nacimiento)
-            
-            # Situaciones (X)
-            if "1 -" in situacion: can.drawString(64, 642, "X")
-            if "2 -" in situacion: 
-                can.drawString(64, 625, "X")
-                can.drawString(205, 625, nif_conyuge.upper())
-            if "3 -" in situacion: can.drawString(64, 608, "X")
-            
-            # Discapacidad
-            if "33%" in discapacidad: can.drawString(427, 608, "X")
-            if "65%" in discapacidad: can.drawString(500, 608, "X")
-            if movilidad: can.drawString(427, 580, "X")
+    # BLOQUE 2: Hijos
+    if num_hijos > 0:
+        can.drawString(300, 510, str(num_hijos))
+        if hijos_entero: can.drawString(355, 510, "X")
+        if hijos_discap_33 > 0: can.drawString(428, 510, str(hijos_discap_33))
+        if hijos_discap_65 > 0: can.drawString(502, 510, str(hijos_discap_65))
 
-            # Hijos (Bloque 2)
-            if num_hijos > 0:
-                can.drawString(300, 510, str(num_hijos))
-                if entero: can.drawString(355, 510, "X")
+    # BLOQUE 3: Ascendientes
+    if num_asc > 0:
+        can.drawString(300, 420, str(num_asc))
+        if asc_discap_33 > 0: can.drawString(428, 420, str(asc_discap_33))
+        if asc_discap_65 > 0: can.drawString(502, 420, str(asc_discap_65))
 
-            # Ascendientes (Bloque 3)
-            if num_asc > 0:
-                can.drawString(300, 420, str(num_asc))
+    # BLOQUE 4 y 5: Pensiones y Vivienda
+    if pension > 0: can.drawString(400, 348, f"{pension:.2f}")
+    if alimentos > 0: can.drawString(400, 335, f"{alimentos:.2f}")
+    if vivienda: can.drawString(63, 305, "X")
 
-            # Vivienda y Pensiones (Bloque 4 y 5)
-            if hipoteca: can.drawString(64, 305, "X")
-            if pension > 0: can.drawString(400, 345, str(pension))
+    # BLOQUE 6: Fecha y Firma
+    fecha_hoy = datetime.now().strftime("%d %m %Y")
+    can.drawString(100, 195, "Madrid") # Ciudad (puedes hacerla campo de texto)
+    can.drawString(215, 195, fecha_hoy.split()[0])
+    can.drawString(245, 195, fecha_hoy.split()[1])
+    can.drawString(285, 195, fecha_hoy.split()[2])
 
-            # Firma
-            if canvas_result.image_data is not None:
-                img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
-                can.drawInlineImage(img, 80, 115, width=120, height=45)
+    if canvas_result.image_data is not None:
+        img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+        can.drawInlineImage(img, 70, 115, width=110, height=40)
 
-            can.save()
-            packet.seek(0)
-            
-            # Fusión con PDF original
-            original = PdfReader(open("modelo145.pdf", "rb"))
-            overlay = PdfReader(packet)
-            output = PdfWriter()
-            
-            page = original.pages[0]
-            page.merge_page(overlay.pages[0])
-            output.add_page(page)
-            
-            # Añadir páginas restantes
-            for i in range(1, len(original.pages)):
-                output.add_page(original.pages[i])
+    can.save()
+    packet.seek(0)
+    
+    # 2. Fusionar
+    original = PdfReader(open("modelo145.pdf", "rb"))
+    overlay = PdfReader(packet)
+    output = PdfWriter()
+    
+    p = original.pages[0]
+    p.merge_page(overlay.pages[0])
+    output.add_page(p)
+    
+    for i in range(1, len(original.pages)):
+        output.add_page(original.pages[i])
 
-            final_buf = io.BytesIO()
-            output.write(final_buf)
-            
-            st.success("✅ ¡PDF Generado correctamente!")
-            st.download_button(
-                label=t["d"],
-                data=final_buf.getvalue(),
-                file_name=f"Modelo145_{nif}.pdf",
-                mime="application/pdf"
-            )
-        except Exception as e:
-            st.error(f"Hubo un error al procesar el PDF: {e}")
+    res_buf = io.BytesIO()
+    output.write(res_buf)
+    st.success("PDF Generado")
+    st.download_button(t["d"], res_buf.getvalue(), f"145_{nif}.pdf", "application/pdf")
