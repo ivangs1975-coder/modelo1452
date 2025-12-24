@@ -7,21 +7,21 @@ from reportlab.lib.pagesizes import A4
 import io
 import datetime
 
-# --- IDIOMAS ---
+# --- CONFIGURACIÓN E IDIOMAS ---
 languages = {
-    "Español": {"tit": "Modelo 145", "btn": "Generar PDF", "lugar": "En:", "fecha": "Fecha:"},
-    "English": {"tit": "Form 145", "btn": "Generate PDF", "lugar": "At:", "fecha": "Date:"},
-    "Русский": {"tit": "Модель 145", "btn": "Скачать", "lugar": "В:", "fecha": "Дата:"},
-    "Polski": {"tit": "Model 145", "btn": "Pobierz", "lugar": "W:", "fecha": "Data:"},
-    "Română": {"tit": "Model 145", "btn": "Descarcă", "lugar": "În:", "fecha": "Data:"},
-    "Українська": {"tit": "Модель 145", "btn": "Завантажити", "lugar": "В:", "fecha": "Дата:"}
+    "Español": {"tit": "Modelo 145 - AEAT", "btn": "Generar y Descargar PDF", "lugar": "Ciudad:"},
+    "English": {"tit": "Form 145", "btn": "Generate PDF", "lugar": "City:"},
+    "Русский": {"tit": "Модель 145", "btn": "Скачать", "lugar": "Город:"},
+    "Polski": {"tit": "Model 145", "btn": "Pobierz", "lugar": "Miasto:"},
+    "Română": {"tit": "Model 145", "btn": "Descarcă", "lugar": "Oraș:"},
+    "Українська": {"tit": "Модель 145", "btn": "Завантажити", "lugar": "Місто:"}
 }
 sel_lang = st.sidebar.selectbox("Idioma", list(languages.keys()))
 t = languages[sel_lang]
 
 st.title(t["tit"])
 
-# --- TODOS LOS CAMPOS QUE YA FUNCIONABAN ---
+# --- ENTRADA DE DATOS ---
 st.header("1. Datos Personales")
 col1, col2 = st.columns(2)
 with col1:
@@ -31,27 +31,17 @@ with col2:
     anio = st.number_input("Año de nacimiento", 1930, 2024, 1980)
     sit_fam = st.radio("Situación Familiar", ["1", "2", "3"], horizontal=True)
 
-st.header("2. Hijos / 4. Pensiones / 5. Vivienda")
-c3, c4, c5 = st.columns(3)
-with c3:
-    num_hijos = st.number_input("Nº Hijos", 0, 10)
-with c4:
-    p_comp = st.number_input("Pensión Comp.", 0.0)
-with c5:
-    vivienda = st.checkbox("Deducción Vivienda")
-
-# --- LUGAR, FECHA Y FIRMA ---
 st.header("6. Lugar, Fecha y Firma")
 c_lug, c_fec = st.columns(2)
 with c_lug:
     lugar_input = st.text_input(t["lugar"], value="Madrid")
 with c_fec:
-    fecha_input = st.date_input(t["fecha"], datetime.date.today())
+    fecha_input = st.date_input("Fecha", datetime.date.today())
 
-st.write("Firma del perceptor:")
+st.write("Firma:")
 canvas_result = st_canvas(stroke_width=2, stroke_color="#0000ff", background_color="#f0f0f0", height=120, width=400, key="canvas")
 
-# --- PROCESO DE GENERACIÓN POR COORDENADAS (EVITA EL ERROR ACROFORM) ---
+# --- PROCESO DE GENERACIÓN CON MAPEO CORREGIDO ---
 if st.button(t["btn"]):
     if nif and nombre:
         try:
@@ -59,55 +49,54 @@ if st.button(t["btn"]):
             writer = PdfWriter()
             page = reader.pages[0]
             
-            # Capa para escribir encima
             packet = io.BytesIO()
             can = canvas.Canvas(packet, pagesize=A4)
             can.setFont("Helvetica", 10)
 
-            # --- COORDENADAS PARA EL MODELO 145 (Ajustadas a tu PDF) ---
-            # SECCIÓN 1
-            can.drawString(75, 688, nif.upper())
-            can.drawString(165, 688, nombre.upper())
-            can.drawString(485, 688, str(anio))
+            # --- NUEVO MAPEO DE COORDENADAS (AJUSTADO AL MODELO 145) ---
             
-            # Situación Familiar (X en la casilla correspondiente)
-            if sit_fam == "1": can.drawString(67, 628, "X")
-            elif sit_fam == "2": can.drawString(67, 588, "X")
-            else: can.drawString(67, 540, "X")
+            # SECCIÓN 1: Datos Personales (X, Y)
+            # El NIF suele estar arriba a la izquierda
+            can.drawString(55, 685, nif.upper())
+            # Apellidos y nombre
+            can.drawString(160, 685, nombre.upper())
+            # Año nacimiento
+            can.drawString(485, 685, str(anio))
+            
+            # CASILLAS DE SITUACIÓN FAMILIAR (Cruces 'X')
+            # Coordenadas estimadas para los cuadraditos de situación
+            if sit_fam == "1":
+                can.drawString(45, 638, "X")
+            elif sit_fam == "2":
+                can.drawString(45, 595, "X")
+            elif sit_fam == "3":
+                can.drawString(45, 545, "X")
 
-            # SECCIÓN 4 (Pensiones)
-            if p_comp > 0: can.drawString(410, 395, str(p_comp))
-            # SECCIÓN 5 (Vivienda)
-            if vivienda: can.drawString(500, 315, "X")
+            # SECCIÓN 6: Lugar y Fecha (Línea de puntos al final)
+            # En el snippet se ve: En [Lugar] a [Día] de [Mes] de [Año]
+            can.drawString(255, 275, lugar_input) # "En..."
+            can.drawString(342, 275, str(fecha_input.day)) # "a..."
+            can.drawString(385, 275, str(fecha_input.month)) # "de..."
+            can.drawString(450, 275, str(fecha_input.year)) # "de..."
 
-            # SECCIÓN 6 (Lugar y Fecha)
-            # En el snippet dice: "En... dia... de... de..."
-            can.drawString(255, 267, lugar_input) # Lugar
-            can.drawString(342, 267, str(fecha_input.day)) # Día
-            can.drawString(380, 267, str(fecha_input.month)) # Mes
-            can.drawString(445, 267, str(fecha_input.year)) # Año
-
-            # FIRMA
+            # FIRMA DIGITAL
             if canvas_result.image_data is not None:
                 img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
-                # Dibujamos la firma en el espacio "Firma del perceptor"
-                can.drawInlineImage(img, 385, 135, width=105, height=45)
+                # Posición del cuadro "Firma del perceptor"
+                can.drawInlineImage(img, 385, 145, width=110, height=45)
             
             can.save()
             packet.seek(0)
             
-            # Mezclar la capa de datos con la página original
+            # Combinar capas
             overlay = PdfReader(packet)
             page.merge_page(overlay.pages[0])
             writer.add_page(page)
 
-            # Descarga
             out = io.BytesIO()
             writer.write(out)
-            st.success("¡PDF generado correctamente!")
+            st.success("¡PDF generado!")
             st.download_button("📥 DESCARGAR", out.getvalue(), "modelo145_firmado.pdf", "application/pdf")
 
         except Exception as e:
             st.error(f"Error: {e}")
-    else:
-        st.warning("Completa NIF y Nombre")
