@@ -5,28 +5,15 @@ from PIL import Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 import io
-import datetime
 
-# --- CONFIGURACIÓN DE IDIOMAS ---
+# --- 1. DICCIONARIO MULTILENGUAJE ---
 languages = {
-    "Español": {
-        "tit": "Modelo 145 - Comunicación de Datos",
-        "s1": "1. Datos del perceptor",
-        "s2": "2. Hijos y descendientes",
-        "s3": "3. Ascendientes",
-        "s4": "4. Pensiones",
-        "s5": "5. Vivienda Habitual",
-        "firma": "6. Firma Digital",
-        "descargar": "Generar PDF con Firma",
-        "sit1": "Situación 1: Soltero/Divorciado con hijos en exclusiva",
-        "sit2": "Situación 2: Casado (cónyuge con rentas < 1.500€)",
-        "sit3": "Situación 3: Otras situaciones",
-    },
-    "English": {"tit": "Form 145", "s1": "1. Personal Data", "s2": "2. Children", "s3": "3. Ascendants", "s4": "4. Pensions", "s5": "5. Home Loan", "firma": "6. Digital Signature", "descargar": "Generate Signed PDF", "sit1": "Situation 1", "sit2": "Situation 2", "sit3": "Situation 3"},
-    "Русский": {"tit": "Модель 145", "s1": "1. Данные", "s2": "2. Дети", "s3": "3. Предки", "s4": "4. Пенсии", "s5": "5. Жилье", "firma": "6. Подпись", "descargar": "Скачать PDF", "sit1": "Ситуация 1", "sit2": "Ситуация 2", "sit3": "Ситуация 3"},
-    "Polski": {"tit": "Model 145", "s1": "1. Dane", "s2": "2. Dzieci", "s3": "3. Wstępni", "s4": "4. Emerytury", "s5": "5. Mieszkanie", "firma": "6. Podpis", "descargar": "Pobierz PDF", "sit1": "Sytuacja 1", "sit2": "Sytuacja 2", "sit3": "Sytuacja 3"},
-    "Română": {"tit": "Model 145", "s1": "1. Date", "s2": "2. Copii", "s3": "3. Ascendenți", "s4": "4. Pensii", "s5": "5. Locuință", "firma": "6. Semnătura", "descargar": "Descarcă PDF", "sit1": "Situația 1", "sit2": "Situația 2", "sit3": "Situația 3"},
-    "Українська": {"tit": "Модель 145", "s1": "1. Дані", "s2": "2. Діти", "s3": "3. Предки", "s4": "4. Пенсії", "s5": "5. Житло", "firma": "6. Підпис", "descargar": "Завантажити PDF", "sit1": "Ситуація 1", "sit2": "Ситуація 2", "sit3": "Ситуація 3"}
+    "Español": {"tit": "Modelo 145", "btn": "Generar PDF", "f_label": "Firma del perceptor:", "c_nif": "NIF del cónyuge"},
+    "English": {"tit": "Form 145", "btn": "Generate PDF", "f_label": "Recipient's signature:", "c_nif": "Spouse's NIF"},
+    "Русский": {"tit": "Модель 145", "btn": "Создать PDF", "f_label": "Подпись получателя:", "c_nif": "ИНН супруга"},
+    "Polski": {"tit": "Model 145", "btn": "Generuj PDF", "f_label": "Podpis odbiorcy:", "c_nif": "NIP małżonka"},
+    "Română": {"tit": "Model 145", "btn": "Generați PDF", "f_label": "Semnătura destinatarului:", "c_nif": "NIF soț/soție"},
+    "Українська": {"tit": "Модель 145", "btn": "Згенерувати PDF", "f_label": "Підпис одержувача:", "c_nif": "ІПН чоловіка/дружини"}
 }
 
 sel_lang = st.sidebar.selectbox("Idioma / Language", list(languages.keys()))
@@ -34,85 +21,72 @@ t = languages[sel_lang]
 
 st.title(t["tit"])
 
-# --- 1. DATOS PERSONALES ---
-st.header(t["s1"])
-c1, c2 = st.columns(2)
-with c1:
+# --- 2. CAMPOS DEL PERCEPTOR ---
+st.subheader("1. Datos personales")
+col1, col2 = st.columns(2)
+with col1:
     nif = st.text_input("NIF")
-    nombre = st.text_input("Apellidos y Nombre")
-with c2:
-    f_nac = st.number_input("Año de nacimiento", 1930, 2024, 1980)
-    discapacidad = st.selectbox("Minusvalía", ["No", ">=33%", ">=65%", "Movilidad"])
+    apellidos_nombre = st.text_input("Apellidos y Nombre")
+with col2:
+    anio_nac = st.number_input("Año de nacimiento", 1930, 2024, 1985)
+    sit_fam = st.radio("Situación familiar", ["1", "2", "3"], horizontal=True)
 
-sit_familiar = st.radio("Situación Familiar", [t["sit1"], t["sit2"], t["sit3"]])
+# Campo dependiente: NIF Cónyuge (Solo si es situación 2)
+nif_conyuge = ""
+if sit_fam == "2":
+    nif_conyuge = st.text_input(t["c_nif"])
 
-# --- 2. HIJOS ---
-st.header(t["s2"])
-num_hijos = st.number_input("Nº Hijos", 0, 10)
-if num_hijos > 0:
-    hijo_discap = st.checkbox("¿Algún hijo con discapacidad?")
+# --- 3. HIJOS Y PENSIONES (Lo que ya tenías) ---
+st.subheader("2. Hijos y 4. Pensiones")
+num_hijos = st.number_input("Nº de hijos", 0, 10)
+p_comp = st.number_input("Pensión compensatoria", 0.0)
+a_alim = st.number_input("Anualidad alimentos", 0.0)
 
-# --- 4. PENSIONES ---
-st.header(t["s4"])
-p_alim = st.number_input("Anualidades alimentos hijos", 0.0)
-p_comp = st.number_input("Pensión compensatoria cónyuge", 0.0)
-
-# --- 5. VIVIENDA ---
-st.header(t["s5"])
-vivienda = st.checkbox("Deducción por vivienda habitual (adquirida antes de 2013)")
-
-# --- 6. FIRMA ---
-st.header(t["firma"])
+# --- 4. FIRMA (LO QUE NO FUNCIONABA) ---
+st.markdown("---")
+st.subheader(t["f_label"])
 canvas_result = st_canvas(
-    fill_color="rgba(255, 255, 255, 0)",
-    stroke_width=3,
-    stroke_color="#0000FF", # Azul tipo bolígrafo
-    background_color="#FFFFFF",
-    height=150, width=400, key="signature",
+    stroke_width=2, stroke_color="#0000ff", background_color="#f0f0f0",
+    height=120, width=350, drawing_mode="freedraw", key="firma_final"
 )
 
-# --- PROCESAMIENTO ---
-if st.button(t["descargar"]):
-    if canvas_result.image_data is not None:
-        # 1. Leer PDF original
+# --- 5. GENERACIÓN DEL PDF ---
+if st.button(t["btn"]):
+    try:
         reader = PdfReader("MODELO_145.pdf")
         writer = PdfWriter()
-        page = reader.pages[0]
+        writer.append_pages_from_reader(reader)
         
-        # 2. Rellenar campos de texto
-        campos = {
+        # Mapeo de datos (Ajusta los nombres si tu PDF usa otros IDs)
+        datos = {
             "NIF": nif,
-            "APELLIDOS": nombre,
-            "ANIO_NAC": str(f_nac),
+            "APELLIDOS_NOMBRE": apellidos_nombre,
+            "ANIO_NAC": str(anio_nac),
+            "SIT_FAM": sit_fam,
+            "NIF_CONY": nif_conyuge,
+            "P_COMP": str(p_comp) if p_comp > 0 else "",
+            "A_ALIM": str(a_alim) if a_alim > 0 else ""
         }
-        # Marcar situación
-        if sit_familiar == t["sit1"]: campos["SIT_1"] = "X"
-        elif sit_familiar == t["sit2"]: campos["SIT_2"] = "X"
-        else: campos["SIT_3"] = "X"
         
-        writer.add_page(page)
-        writer.update_page_form_field_values(writer.pages[0], campos)
+        writer.update_page_form_field_values(writer.pages[0], datos)
 
-        # 3. Crear capa de firma con ReportLab
-        sig_map = io.BytesIO()
-        can = canvas.Canvas(sig_map, pagesize=A4)
-        
-        # Convertir canvas a imagen PIL
-        img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
-        
-        # Dibujar la firma en coordenadas específicas (ajustar según tu PDF)
-        # En el Modelo 145 la firma suele estar abajo a la derecha
-        can.drawInlineImage(img, 380, 130, width=120, height=45) 
-        can.save()
-        
-        # 4. Fusionar la firma con el PDF
-        sig_map.seek(0)
-        signature_pdf = PdfReader(sig_map)
-        writer.pages[0].merge_page(signature_pdf.pages[0])
+        # Proceso de Estampado de la Firma (Imagen sobre PDF)
+        if canvas_result.image_data is not None:
+            packet = io.BytesIO()
+            can = canvas.Canvas(packet, pagesize=A4)
+            img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+            
+            # Estas coordenadas (375, 155) sitúan la firma en el hueco del Modelo 145
+            can.drawInlineImage(img, 375, 155, width=100, height=40)
+            can.save()
+            packet.seek(0)
+            writer.pages[0].merge_page(PdfReader(packet).pages[0])
 
-        # 5. Descargar
+        # Descarga final
         output = io.BytesIO()
         writer.write(output)
-        st.download_button("📥 Descargar Modelo 145 Firmado", output.getvalue(), "modelo145_final.pdf", "application/pdf")
-    else:
-        st.warning("Por favor, firma antes de generar el PDF.")
+        st.success("PDF procesado.")
+        st.download_button("📥 Descargar Modelo 145 Firmado", output.getvalue(), "modelo_145_final.pdf", "application/pdf")
+
+    except Exception as e:
+        st.error(f"Error: {e}")
