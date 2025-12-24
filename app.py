@@ -1,102 +1,118 @@
 import streamlit as st
+from pypdf import PdfReader, PdfWriter
+from streamlit_drawable_canvas import st_canvas
+from PIL import Image
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+import io
+import datetime
 
-# 1. CONFIGURACIÓN DE IDIOMAS
+# --- CONFIGURACIÓN DE IDIOMAS ---
 languages = {
     "Español": {
-        "titulo": "Modelo 145 - Retenciones sobre rendimientos del trabajo",
-        "pensiones": "4. Pensiones compensatorias y anualidades por alimentos",
-        "firma": "6. Fecha y firma de la comunicación",
-        "hijos": "2. Hijos y otros descendientes",
-        "datos_pers": "1. Datos personales y situación familiar",
-        "ayuda_chk": "Marque las casillas según corresponda:"
+        "tit": "Modelo 145 - Comunicación de Datos",
+        "s1": "1. Datos del perceptor",
+        "s2": "2. Hijos y descendientes",
+        "s3": "3. Ascendientes",
+        "s4": "4. Pensiones",
+        "s5": "5. Vivienda Habitual",
+        "firma": "6. Firma Digital",
+        "descargar": "Generar PDF con Firma",
+        "sit1": "Situación 1: Soltero/Divorciado con hijos en exclusiva",
+        "sit2": "Situación 2: Casado (cónyuge con rentas < 1.500€)",
+        "sit3": "Situación 3: Otras situaciones",
     },
-    "English": {
-        "titulo": "Form 145 - Withholding on earned income",
-        "pensiones": "4. Compensatory pensions and alimony annuities",
-        "firma": "6. Date and signature of the communication",
-        "hijos": "2. Children and other descendants",
-        "datos_pers": "1. Personal data and family status",
-        "ayuda_chk": "Check the boxes as appropriate:"
-    },
-    "Русский": {
-        "titulo": "Форма 145 - Удержания из трудовых доходов",
-        "pensiones": "4. Компенсационные выплаты и алименты",
-        "firma": "6. Дата и подпись",
-        "hijos": "2. Дети и другие потомки",
-        "datos_pers": "1. Личные данные и семейное положение",
-        "ayuda_chk": "Отметьте соответствующие поля:"
-    },
-    "Polski": {
-        "titulo": "Formularz 145 - Zaliczki na podatek od dochodów z pracy",
-        "pensiones": "4. Renty wyrównawcze i alimenty",
-        "firma": "6. Data i podpis",
-        "hijos": "2. Dzieci i inni zstępni",
-        "datos_pers": "1. Dane osobowe i sytuacja rodzinna",
-        "ayuda_chk": "Zaznacz odpowiednie pola:"
-    },
-    "Română": {
-        "titulo": "Formularul 145 - Rețineri din veniturile din muncă",
-        "pensiones": "4. Pensii compensatorii și anuități pentru alimente",
-        "firma": "6. Data și semnătura",
-        "hijos": "2. Copii și alți descendenți",
-        "datos_pers": "1. Date personale și starea civilă",
-        "ayuda_chk": "Bifați căsuțele corespunzătoare:"
-    },
-    "Українська": {
-        "titulo": "Форма 145 - Утримання з доходів від праці",
-        "pensiones": "4. Компенсаційні виплати та аліменти",
-        "firma": "6. Дата та підпис",
-        "hijos": "2. Діти та інші нащадки",
-        "datos_pers": "1. Особисті дані та сімейний стан",
-        "ayuda_chk": "Поставте галочки у відповідних полях:"
-    }
+    "English": {"tit": "Form 145", "s1": "1. Personal Data", "s2": "2. Children", "s3": "3. Ascendants", "s4": "4. Pensions", "s5": "5. Home Loan", "firma": "6. Digital Signature", "descargar": "Generate Signed PDF", "sit1": "Situation 1", "sit2": "Situation 2", "sit3": "Situation 3"},
+    "Русский": {"tit": "Модель 145", "s1": "1. Данные", "s2": "2. Дети", "s3": "3. Предки", "s4": "4. Пенсии", "s5": "5. Жилье", "firma": "6. Подпись", "descargar": "Скачать PDF", "sit1": "Ситуация 1", "sit2": "Ситуация 2", "sit3": "Ситуация 3"},
+    "Polski": {"tit": "Model 145", "s1": "1. Dane", "s2": "2. Dzieci", "s3": "3. Wstępni", "s4": "4. Emerytury", "s5": "5. Mieszkanie", "firma": "6. Podpis", "descargar": "Pobierz PDF", "sit1": "Sytuacja 1", "sit2": "Sytuacja 2", "sit3": "Sytuacja 3"},
+    "Română": {"tit": "Model 145", "s1": "1. Date", "s2": "2. Copii", "s3": "3. Ascendenți", "s4": "4. Pensii", "s5": "5. Locuință", "firma": "6. Semnătura", "descargar": "Descarcă PDF", "sit1": "Situația 1", "sit2": "Situația 2", "sit3": "Situația 3"},
+    "Українська": {"tit": "Модель 145", "s1": "1. Дані", "s2": "2. Діти", "s3": "3. Предки", "s4": "4. Пенсії", "s5": "5. Житло", "firma": "6. Підпис", "descargar": "Завантажити PDF", "sit1": "Ситуація 1", "sit2": "Ситуація 2", "sit3": "Ситуація 3"}
 }
 
-# 2. SELECTOR DE IDIOMA (Aparece arriba del todo)
-selected_lang = st.sidebar.selectbox("Selecciona tu idioma / Select your language", list(languages.keys()))
-t = languages[selected_lang]
+sel_lang = st.sidebar.selectbox("Idioma / Language", list(languages.keys()))
+t = languages[sel_lang]
 
-# 3. CONTENIDO DE LA APP
-st.title(t["titulo"])
+st.title(t["tit"])
 
-# --- SECCIÓN 1: DATOS PERSONALES ---
-st.subheader(t["datos_pers"])
-nombre = st.text_input("Nombre y Apellidos / Name and Surname")
-dni = st.text_input("DNI / NIE")
+# --- 1. DATOS PERSONALES ---
+st.header(t["s1"])
+c1, c2 = st.columns(2)
+with c1:
+    nif = st.text_input("NIF")
+    nombre = st.text_input("Apellidos y Nombre")
+with c2:
+    f_nac = st.number_input("Año de nacimiento", 1930, 2024, 1980)
+    discapacidad = st.selectbox("Minusvalía", ["No", ">=33%", ">=65%", "Movilidad"])
 
-# --- SECCIÓN 2: CHECKBOXES (Corregidos con 'key' única) ---
-st.write(t["ayuda_chk"])
-col1, col2 = st.columns(2)
-with col1:
-    sit_1 = st.checkbox("Situación Familiar 1", key="sit1")
-    discapacidad = st.checkbox("Discapacidad >= 33%", key="disc")
-with col2:
-    sit_2 = st.checkbox("Situación Familiar 2", key="sit2")
-    movilidad = st.checkbox("Movilidad reducida", key="mov")
+sit_familiar = st.radio("Situación Familiar", [t["sit1"], t["sit2"], t["sit3"]])
 
-# --- SECCIÓN: HIJOS ---
-st.subheader(t["hijos"])
-# Aquí irían los inputs para hijos...
+# --- 2. HIJOS ---
+st.header(t["s2"])
+num_hijos = st.number_input("Nº Hijos", 0, 10)
+if num_hijos > 0:
+    hijo_discap = st.checkbox("¿Algún hijo con discapacidad?")
 
-# --- SECCIÓN 4: PENSIONES (Aquí estaba tu error de la línea 57) ---
-st.subheader(t["pensiones"])
-importe_pension = st.number_input("Importe anual / Annual amount", min_value=0.0, step=100.0)
+# --- 4. PENSIONES ---
+st.header(t["s4"])
+p_alim = st.number_input("Anualidades alimentos hijos", 0.0)
+p_comp = st.number_input("Pensión compensatoria cónyuge", 0.0)
 
-# --- SECCIÓN 6: FIRMA (Bajada con espacio) ---
-# Añadimos varios saltos de línea para bajar la firma
-st.markdown("<br>" * 8, unsafe_allow_html=True) 
+# --- 5. VIVIENDA ---
+st.header(t["s5"])
+vivienda = st.checkbox("Deducción por vivienda habitual (adquirida antes de 2013)")
 
-st.divider() # Una línea visual divisoria
-st.subheader(t["firma"])
-fecha = st.date_input("Fecha / Date")
+# --- 6. FIRMA ---
+st.header(t["firma"])
+canvas_result = st_canvas(
+    fill_color="rgba(255, 255, 255, 0)",
+    stroke_width=3,
+    stroke_color="#0000FF", # Azul tipo bolígrafo
+    background_color="#FFFFFF",
+    height=150, width=400, key="signature",
+)
 
-# Simulación de recuadro de firma
-st.markdown("""
-    <div style="border: 1px solid #ccc; padding: 50px; text-align: center; border-radius: 10px;">
-        Firma del perceptor / Signature
-    </div>
-""", unsafe_allow_html=True)
+# --- PROCESAMIENTO ---
+if st.button(t["descargar"]):
+    if canvas_result.image_data is not None:
+        # 1. Leer PDF original
+        reader = PdfReader("MODELO_145.pdf")
+        writer = PdfWriter()
+        page = reader.pages[0]
+        
+        # 2. Rellenar campos de texto
+        campos = {
+            "NIF": nif,
+            "APELLIDOS": nombre,
+            "ANIO_NAC": str(f_nac),
+        }
+        # Marcar situación
+        if sit_familiar == t["sit1"]: campos["SIT_1"] = "X"
+        elif sit_familiar == t["sit2"]: campos["SIT_2"] = "X"
+        else: campos["SIT_3"] = "X"
+        
+        writer.add_page(page)
+        writer.update_page_form_field_values(writer.pages[0], campos)
 
-# Botón de envío
-if st.button("Generar PDF"):
-    st.success("Procesando información...")
+        # 3. Crear capa de firma con ReportLab
+        sig_map = io.BytesIO()
+        can = canvas.Canvas(sig_map, pagesize=A4)
+        
+        # Convertir canvas a imagen PIL
+        img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+        
+        # Dibujar la firma en coordenadas específicas (ajustar según tu PDF)
+        # En el Modelo 145 la firma suele estar abajo a la derecha
+        can.drawInlineImage(img, 380, 130, width=120, height=45) 
+        can.save()
+        
+        # 4. Fusionar la firma con el PDF
+        sig_map.seek(0)
+        signature_pdf = PdfReader(sig_map)
+        writer.pages[0].merge_page(signature_pdf.pages[0])
+
+        # 5. Descargar
+        output = io.BytesIO()
+        writer.write(output)
+        st.download_button("📥 Descargar Modelo 145 Firmado", output.getvalue(), "modelo145_final.pdf", "application/pdf")
+    else:
+        st.warning("Por favor, firma antes de generar el PDF.")
